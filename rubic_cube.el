@@ -111,11 +111,11 @@
       (apply painter (nth (incf l) cube-screen) (- c 2) c nil nil)))
 
 (defun rubic-make-initial-cube ()
-  (let ((res (make-vector (* 9 6) 0)))
-    (loop for i from 0 to 5
-          do (loop for j from 0 to 8
-                   do (aset res (+ j (* i 9)) i)))
-    res))
+  (loop with res = (make-vector (* 9 6) 0)
+        for i from 0 to 5
+        do (loop for j from 0 to 8
+                 do (aset res (+ j (* i 9)) i))
+        finally return res))
 
 (defun rubic-displace-diamond (coord local-number)
   "Calculate displacement of the cell of top and bottom sides"
@@ -173,4 +173,66 @@
   (setq rubic-cube-front (mapcar #'copy-sequence rubic-cube-front-default))
   (setq rubic-cube-back (mapcar #'copy-sequence rubic-cube-back-default))
   (loop for i from 1 to (* 6 9) do
-        (rubic-paint-cell rubic-cube-front rubic-cube-back (1- i) (aref cube-state (1- i)))))
+        (rubic-paint-cell rubic-cube-front rubic-cube-back (1- i) (aref cubes-tate (1- i)))))
+
+;; definitions for rotational notation
+(require 'calc)
+(defconst rubic-i '(cplx 0 1))
+(defconst rubic-neg-i '(cplx 0 -1))
+
+(defconst rubic-desc-rot-identity
+  '((0 1) (1 1) (2 1) (3 1) (4 1) (5 1)))
+
+(defconst rubic-desc-rot-1-2
+  `((1 1) (5 ,rubic-i) (2 ,rubic-neg-i) (0 -1) (4 ,rubic-i) (3 ,rubic-i)))
+
+(defconst rubic-desc-rot-1-3
+  `((2 ,rubic-i) (1 ,rubic-i) (5 -1) (3 ,rubic-neg-i) (0 ,rubic-i) (4 1)))
+
+(defconst rubic-desc-rot-2-3
+  `((0 ,rubic-neg-i) (2 1) (3 1) (4 1) (1 1) (5 ,rubic-i)))
+
+(defun rubic-compose-rot (rot-1 rot-2)
+  "Make rotation from two defined ones"
+  (loop for (n1 r1) in rot-1
+        for (n2 r2) = (nth n1 rot-2)
+        collect (list n2 (math-mul r1 r2))))
+
+(defun rubic-rotate (&rest turns)
+  "Compose as many rotations as needed"
+  (reduce 'rubic-compose-rot turns))
+
+(defconst rubicside-renumbering-clockwise
+  '(6 3 0 7 4 1 8 5 2))
+
+(defun rubic-compose-subst (sub1 sub2)
+  (loop for i1 in sub1
+        for i2 = (nth i1 sub2)
+        collect i2))
+
+(defun rubic-substitute (&rest subs)
+  (reduce 'rubic-compose-subst subs))
+
+(defconst rubic-side-rotations
+  (list (cons rubic-i rubicside-renumbering-clockwise)
+        (cons -1 (rubic-substitute rubicside-renumbering-clockwise
+                                   rubicside-renumbering-clockwise))
+        (cons rubic-neg-i (rubic-substitute rubicside-renumbering-clockwise
+                                            rubicside-renumbering-clockwise
+                                            rubicside-renumbering-clockwise))
+        ;; we could call with 4 rotations or define a constant for identity. But therte is no need, really
+        (cons 1 (list 0 1 2 3 4 5 6 7 8))))
+
+(defun rubic-expand-substitution (sub)
+  "Get substitution for entire cube state"
+  (loop with res = (make-vector (* 9 6) 0)
+        for i = 0 to 5
+        for (side-number rot) = (nth i sub)
+        for side-reorder = (alist-get rot rubic-side-rotations)
+        for base-offset = (* i 9)
+        for target-offset = (* side-number 9)
+        do (loop for j = 0 to 9
+                 do
+                 (setf (aref res (+ j target-offset))
+                       (+ base-offset (nth j side-reorder))))
+        finally return res))
