@@ -173,7 +173,7 @@
   (setq rubic-cube-front (mapcar #'copy-sequence rubic-cube-front-default))
   (setq rubic-cube-back (mapcar #'copy-sequence rubic-cube-back-default))
   (loop for i from 1 to (* 6 9) do
-        (rubic-paint-cell rubic-cube-front rubic-cube-back (1- i) (aref cubes-tate (1- i)))))
+        (rubic-paint-cell rubic-cube-front rubic-cube-back (1- i) (aref cube-state (1- i)))))
 
 ;; definitions for rotational notation
 (require 'calc)
@@ -226,13 +226,224 @@
 (defun rubic-expand-substitution (sub)
   "Get substitution for entire cube state"
   (loop with res = (make-vector (* 9 6) 0)
-        for i = 0 to 5
+        for i from 0 to 5
         for (side-number rot) = (nth i sub)
-        for side-reorder = (alist-get rot rubic-side-rotations)
+        for side-reorder = (cdr (assoc rot rubic-side-rotations))
         for base-offset = (* i 9)
         for target-offset = (* side-number 9)
-        do (loop for j = 0 to 9
+        do (loop for j from 0 to 8
                  do
                  (setf (aref res (+ j target-offset))
                        (+ base-offset (nth j side-reorder))))
-        finally return res))
+        finally return (append res nil)))
+
+(defconst rubic-turn-top-substitution
+  (let ((temp (coerce (loop for i from 0 to (1- (* 9 6)) collect i) 'vector))
+        (side-offsets '((9 36) (18 9) (27 18) (36 27)))
+        (rotation (rubic-substitute rubicside-renumbering-clockwise
+                                    rubicside-renumbering-clockwise
+                                    rubicside-renumbering-clockwise)))
+    (loop for i from 0 to 8 do (aset temp i (nth i rotation)))
+    (loop for (loc num) in side-offsets do
+          (loop for i from 0 to 2 do
+                (aset temp (+ loc i) (+ num i))))
+    (append temp nil)))
+
+(defun rubic-apply-transformation (state transform)
+  (let ((second (copy-sequence state)))
+    (loop for i from 0 to (1- (length second)) do
+          (aset state (nth i transform) (aref second i)))))
+
+;; definitions of common transformations
+(defconst rubic-U
+  rubic-turn-top-substitution)
+
+(defconst rubic-U2
+  (rubic-substitute rubic-turn-top-substitution
+                    rubic-turn-top-substitution))
+
+(defconst rubic-Ui
+  (rubic-substitute rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution))
+
+(defconst rubic-F
+  (rubic-substitute (rubic-expand-substitution rubic-desc-rot-1-2)
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))))
+
+(defconst rubic-F2
+  (rubic-substitute (rubic-expand-substitution rubic-desc-rot-1-2)
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))))
+
+(defconst rubic-Fi
+  (rubic-substitute (rubic-expand-substitution rubic-desc-rot-1-2)
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))))
+
+(defconst rubic-R
+  (rubic-substitute (rubic-expand-substitution rubic-desc-rot-1-3)
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3))))
+
+(defconst rubic-R2
+  (rubic-substitute (rubic-expand-substitution rubic-desc-rot-1-3)
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3))))
+
+(defconst rubic-Ri
+  (rubic-substitute (rubic-expand-substitution rubic-desc-rot-1-3)
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3))))
+
+(defconst rubic-L
+  (rubic-substitute (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3))
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution rubic-desc-rot-1-3)))
+
+(defconst rubic-L2
+  (rubic-substitute (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3))
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution rubic-desc-rot-1-3)))
+
+(defconst rubic-Li
+  (rubic-substitute (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3
+                                   rubic-desc-rot-1-3))
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution rubic-desc-rot-1-3)))
+
+(defconst rubic-B
+  (rubic-substitute (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution rubic-desc-rot-1-2)))
+
+(defconst rubic-B2
+  (rubic-substitute (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution rubic-desc-rot-1-2)))
+
+(defconst rubic-Bi
+  (rubic-substitute (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution rubic-desc-rot-1-2)))
+
+(defconst rubic-D
+  (rubic-substitute (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))))
+
+(defconst rubic-D2
+  (rubic-substitute (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))))
+
+(defconst rubic-Di
+  (rubic-substitute (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    rubic-turn-top-substitution
+                    (rubic-expand-substitution
+                     (rubic-rotate rubic-desc-rot-1-2
+                                   rubic-desc-rot-1-2))))
+
+(defconst rubic-x
+  (rubic-expand-substitution rubic-desc-rot-1-2))
+
+(defconst rubic-x2
+  (rubic-expand-substitution
+   (rubic-rotate rubic-desc-rot-1-2
+                 rubic-desc-rot-1-2)))
+
+(defconst rubic-xi
+  (rubic-expand-substitution
+   (rubic-rotate rubic-desc-rot-1-2
+                 rubic-desc-rot-1-2
+                 rubic-desc-rot-1-2)))
+
+(defconst rubic-y
+  (rubic-expand-substitution rubic-desc-rot-2-3))
+
+(defconst rubic-y2
+  (rubic-expand-substitution
+   (rubic-rotate rubic-desc-rot-2-3
+                 rubic-desc-rot-2-3)))
+
+(defconst rubic-yi
+  (rubic-expand-substitution
+   (rubic-rotate rubic-desc-rot-2-3
+                 rubic-desc-rot-2-3
+                 rubic-desc-rot-2-3)))
+
+(defconst rubic-zi
+  (rubic-expand-substitution rubic-desc-rot-1-3))
+
+(defconst rubic-z2
+  (rubic-expand-substitution
+   (rubic-rotate rubic-desc-rot-1-3
+                 rubic-desc-rot-1-3)))
+
+(defconst rubic-z
+  (rubic-expand-substitution
+   (rubic-rotate rubic-desc-rot-1-3
+                 rubic-desc-rot-1-3
+                 rubic-desc-rot-1-3)))
+
