@@ -2,6 +2,7 @@
 ;;; rubic_cube.el
 ;; emulation and solution of rubic's cube in emacs
 
+;; cube layout
 (defconst rubic-cube-front-default '("             / \\             "
                                      "           /     \\           "
                                      "         / \\     / \\         "
@@ -45,15 +46,16 @@
                                     "           \\_   _/           "
                                     "             \\_/             "))
 
-(defvar rubic-cuve-back nil
+(defvar-local rubic-cuve-back nil
   "Canbas for front of rubic's cube")
 
-(defvar rubic-cube-front nil
+(defvar-local rubic-cube-front nil
   "Canvas for back of rubic's cube")
 
 (defconst side-coord '[(0 14) (7 3) (11 17) (5 5) (1 15) (9 14)]
   "Coordinates of starting points of the cube sides")
 
+;; faces
 (defface rubic-red
   '((t . (:background "red")))
   "Red colored cube side")
@@ -80,6 +82,7 @@
                        rubic-blue
                        rubic-orange])
 
+;; painter functions
 (defun rubic-color-painter (face)
   "make function that will apply color to string"
   (lambda (str beg end prn)
@@ -446,4 +449,110 @@
    (rubic-rotate rubic-desc-rot-1-3
                  rubic-desc-rot-1-3
                  rubic-desc-rot-1-3)))
+
+;; mode definitions
+(defvar-local cube-state nil
+  "State of the cube that is being processed")
+
+(defun rubic-center-string (str l)
+  (if (> (length str) l)
+      (substring str l)
+    (let* ((sl (length str))
+           (pad (/ (- l sl) 2))
+           (rem (- l pad)))
+      (concat (format (format "%%%ds" rem) str) (make-string pad ? )))))
+
+(defun rubic-display-cube ()
+  "Draw current cube state, assuming empty buffer"
+  ;; first, update canvasses according to  the cube state
+  (rubic-paint-cube cube-state)
+  (let ((w (length (first rubic-cube-front-default)))
+        (h (length rubic-cube-front-default)))
+    (insert (format "%s%s\n"
+                    (rubic-center-string "*FRONT*" w)
+                    (rubic-center-string "*BACK*" w)))
+    (insert-rectangle rubic-cube-front)
+    (forward-line (- (decf h)))
+    (move-end-of-line nil)
+    (insert-rectangle rubic-cube-back)))
+
+(defun rubic-draw-all ()
+  (setq buffer-read-only nil)
+  (erase-buffer)
+  (rubic-display-cube)
+  (setq buffer-read-only t))
+
+(defmacro rubic-define-command (transformation)
+  (let ((command-name (intern (concat (symbol-name transformation) "-command"))))
+    `(defun ,command-name ()
+       (interactive)
+       (rubic-apply-transformation cube-state ,transformation)
+       (rubic-draw-all))))
+
+(defmacro rubic-define-commands (&rest transformations)
+  (let ((head (car transformations))
+        (tail (cdr transformations)))
+    `(progn
+       ,(when head
+          `(rubic-define-command ,head))
+       ,(when tail
+          `(rubic-define-commands ,@tail)))))
+
+(rubic-define-commands rubic-U rubic-U2 rubic-Ui
+                       rubic-F rubic-F2 rubic-Fi
+                       rubic-R rubic-R2 rubic-Ri
+                       rubic-L rubic-L2 rubic-Li
+                       rubic-B rubic-B2 rubic-Bi
+                       rubic-D rubic-D2 rubic-Di
+                       rubic-x rubic-x2 rubic-xi
+                       rubic-y rubic-y2 rubic-yi
+                       rubic-z rubic-z2 rubic-zi)
+
+(defvar rubic-mode-map
+  (let ((map (make-sparse-keymap))
+        (map-i (make-sparse-keymap))
+        (map-2 (make-sparse-keymap)))
+    (define-key map "u" 'rubic-U-command)
+    (define-key map-2 "u" 'rubic-U2-command)
+    (define-key map-i "u" 'rubic-Ui-command)
+    (define-key map "f" 'rubic-F-command)
+    (define-key map-2 "f" 'rubic-F2-command)
+    (define-key map-i "f" 'rubic-Fi-command)
+    (define-key map "r" 'rubic-R-command)
+    (define-key map-2 "r" 'rubic-R2-command)
+    (define-key map-i "r" 'rubic-Ri-command)
+    (define-key map "l" 'rubic-L-command)
+    (define-key map-2 "l" 'rubic-L2-command)
+    (define-key map-i "l" 'rubic-Li-command)
+    (define-key map "b" 'rubic-B-command)
+    (define-key map-2 "b" 'rubic-B2-command)
+    (define-key map-i "b" 'rubic-Bi-command)
+    (define-key map "d" 'rubic-D-command)
+    (define-key map-2 "d" 'rubic-D2-command)
+    (define-key map-i "d" 'rubic-Di-command)
+    (define-key map "x" 'rubic-x-command)
+    (define-key map-2 "x" 'rubic-x2-command)
+    (define-key map-i "x" 'rubic-xi-command)
+    (define-key map "y" 'rubic-y-command)
+    (define-key map-2 "y" 'rubic-y2-command)
+    (define-key map-i "y" 'rubic-yi-command)
+    (define-key map "z" 'rubic-z-command)
+    (define-key map-2 "z" 'rubic-z2-command)
+    (define-key map-i "z" 'rubic-zi-command)
+    (define-key map "2" map-2)
+    (define-key map "i" map-i)
+    map))
+
+(define-derived-mode rubic-mode special-mode
+  "rubic's cube")
+
+(add-hook 'rubic-mode-hook
+          (lambda () (setq cube-state (rubic-make-initial-cube))))
+
+(defun rubic ()
+  "Prepare for rubic mode"
+  (interactive)
+  (switch-to-buffer "*Rubic*")
+  (rubic-mode)
+  (rubic-draw-all))
 
