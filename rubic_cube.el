@@ -454,6 +454,12 @@
 (defvar-local cube-state nil
   "State of the cube that is being processed")
 
+(defvar-local cube-undo (list 'undo)
+  "List of previously executed commands")
+
+(defvar-local cube-redo (list 'redo)
+  "List of previously undone commands")
+
 (defun rubic-center-string (str l)
   (if (> (length str) l)
       (substring str l)
@@ -476,37 +482,123 @@
     (move-end-of-line nil)
     (insert-rectangle rubic-cube-back)))
 
+(defun rubic-display-undo ()
+  "Print undo information"
+  (loop with line-str = "\nUndo: "
+        for cmd in (reverse (cdr cube-undo))
+        for i = 1 then (1+ i)
+        do (progn
+             (setq line-str (concat line-str (format "%d. %s " i (get cmd 'name))))
+             (when (> (length line-str) fill-column)
+               (insert line-str)
+               (setq line-str (concat "\n" (make-string 6 ? )))))
+        finally (insert line-str)))
+
+(defun rubic-display-redo ()
+  "Print undo information"
+  (loop with line-str = "\nRedo: "
+        for cmd in (cdr cube-redo)
+        for i = 1 then (1+ i)
+        do (progn
+             (setq line-str (concat line-str (format "%d. %s " i (get cmd 'name))))
+             (when (> (length line-str) fill-column)
+               (insert line-str)
+               (setq line-str (concat "\n" (make-string 6 ? )))))
+        finally (insert line-str)))
+
 (defun rubic-draw-all ()
   (setq buffer-read-only nil)
   (erase-buffer)
   (rubic-display-cube)
+  (rubic-display-undo)
+  (rubic-display-redo)
   (setq buffer-read-only t))
 
-(defmacro rubic-define-command (transformation)
+(defmacro rubic-define-command (transformation desc)
   (let ((command-name (intern (concat (symbol-name transformation) "-command"))))
-    `(defun ,command-name ()
+    (put command-name 'name desc)
+    `(defun ,command-name (&optional arg)
        (interactive)
        (rubic-apply-transformation cube-state ,transformation)
-       (rubic-draw-all))))
+       (unless arg
+         (setcdr cube-redo nil)
+         (setcdr cube-undo (cons (quote ,command-name) (cdr cube-undo)))
+         (rubic-draw-all)))))
 
 (defmacro rubic-define-commands (&rest transformations)
   (let ((head (car transformations))
-        (tail (cdr transformations)))
+        (command-name (cadr transformations))
+        (tail (cddr transformations)))
     `(progn
        ,(when head
-          `(rubic-define-command ,head))
+          `(rubic-define-command ,head ,command-name))
        ,(when tail
           `(rubic-define-commands ,@tail)))))
 
-(rubic-define-commands rubic-U rubic-U2 rubic-Ui
-                       rubic-F rubic-F2 rubic-Fi
-                       rubic-R rubic-R2 rubic-Ri
-                       rubic-L rubic-L2 rubic-Li
-                       rubic-B rubic-B2 rubic-Bi
-                       rubic-D rubic-D2 rubic-Di
-                       rubic-x rubic-x2 rubic-xi
-                       rubic-y rubic-y2 rubic-yi
-                       rubic-z rubic-z2 rubic-zi)
+(rubic-define-commands rubic-U "Upper" rubic-U2 "Upper twice" rubic-Ui "Upper inverted"
+                       rubic-F "Front" rubic-F2 "Front twice" rubic-Fi "Front inverted"
+                       rubic-R "Right" rubic-R2 "Right twice" rubic-Ri "Right inverted"
+                       rubic-L "Left" rubic-L2 "Left twice" rubic-Li "Left inverted"
+                       rubic-B "Back" rubic-B2 "Back twice" rubic-Bi "Back inverted"
+                       rubic-D "Down" rubic-D2 "Down twice" rubic-Di "Down inverted"
+                       rubic-x "X rotation" rubic-x2 "X overturn" rubic-xi "X rotation inverted"
+                       rubic-y "Y rotation" rubic-y2 "Y overturn" rubic-yi "Y rotation inverted"
+                       rubic-z "Z rotation" rubic-z2 "Z overturn" rubic-zi "Z rotation inverted")
+
+(defconst rubic-reverse-commands
+  '((rubic-U-command . rubic-Ui-command)
+    (rubic-U2-command . rubic-U2-command)
+    (rubic-F-command . rubic-Fi-command)
+    (rubic-F2-command . rubic-F2-command)
+    (rubic-R-command . rubic-Ri-command)
+    (rubic-R2-command . rubic-R2-command)
+    (rubic-L-command . rubic-Li-command)
+    (rubic-L2-command . rubic-L2-command)
+    (rubic-B-command . rubic-Bi-command)
+    (rubic-B2-command . rubic-B2-command)
+    (rubic-D-command . rubic-Di-command)
+    (rubic-D2-command . rubic-D2-command)
+    (rubic-x-command . rubic-xi-command)
+    (rubic-x2-command . rubic-x2-command)
+    (rubic-y-command . rubic-yi-command)
+    (rubic-y2-command . rubic-y2-command)
+    (rubic-z-command . rubic-zi-command)
+    (rubic-z2-command . rubic-z2-command)))
+
+(defun rubic-reset ()
+  "Set cube to initial state"
+  (interactive)
+  (setq cube-state (rubic-make-initial-cube))
+  (setq cube-undo (list 'undo))
+  (setq cube-redo (list 'redo))
+  (rubic-draw-all))
+
+(defun rubic-undo (&optional arg)
+  "Undo up to ARG commands from undo list"
+  (interactive "p")
+  (let ((num (or arg 1)))
+    (loop repeat num
+          for lastcmd = (cadr cube-undo)
+          when lastcmd do
+          (let ((revcmd (or (cdr (assoc lastcmd rubic-reverse-commands))
+                            (car (rassoc lastcmd rubic-reverse-commands)))))
+            (setcdr cube-redo (cons lastcmd (cdr cube-redo)))
+            (setcdr cube-undo (cddr cube-undo))
+            (apply revcmd '(t))))
+    (rubic-draw-all)))
+
+(defun rubic-redo (&optional arg)
+  "Redo up to ARG commands"
+  (interactive "p")
+  (let ((num (or arg 1)))
+    (loop repeat num
+          for lastcmd = (cadr cube-redo)
+          when lastcmd do
+          (progn
+            (setcdr cube-undo (cons lastcmd (cdr cube-undo)))
+            (setcdr cube-redo (cddr cube-redo))
+            (apply lastcmd '(t))))
+    (rubic-draw-all)))
 
 (defvar rubic-mode-map
   (let ((map (make-sparse-keymap))
@@ -539,20 +631,24 @@
     (define-key map "z" 'rubic-z-command)
     (define-key map-2 "z" 'rubic-z2-command)
     (define-key map-i "z" 'rubic-zi-command)
+    (define-key map "g" 'rubic-reset)
     (define-key map "2" map-2)
     (define-key map "i" map-i)
+    (define-key map (kbd "M-u") 'rubic-undo)
+    (define-key map (kbd "M-r") 'rubic-redo)
     map))
 
 (define-derived-mode rubic-mode special-mode
   "rubic's cube")
 
 (add-hook 'rubic-mode-hook
-          (lambda () (setq cube-state (rubic-make-initial-cube))))
+          (lambda ()
+            (rubic-reset)))
 
 (defun rubic ()
   "Prepare for rubic mode"
   (interactive)
   (switch-to-buffer "*Rubic*")
-  (rubic-mode)
-  (rubic-draw-all))
+  (rubic-mode))
+
 
