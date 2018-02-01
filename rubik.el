@@ -690,16 +690,13 @@
 (define-derived-mode rubik-mode special-mode
   "Mode for solving Rubik's Cube.")
 
-(add-hook 'rubik-mode-hook
-          (lambda ()
-            (rubik-reset)))
-
 ;;;###autoload
 (defun rubik ()
   "Start solving Rubik's Cube."
   (interactive)
   (pop-to-buffer "*Rubik*")
-  (rubik-mode))
+  (rubik-mode)
+  (rubik-reset))
 
 (provide 'rubik)
 
