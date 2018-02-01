@@ -188,7 +188,7 @@
     (list l c)))
 
 (defun rubik-displace-upslope (coord local-number)
-  "Calculate displacements of the cell of front and left sides."
+  "Calculate displacements of the cell of back and right sides."
   (let ((l (first coord))
         (c (second coord))
         (row (/ local-number 3))
