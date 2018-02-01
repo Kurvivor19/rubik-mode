@@ -1,4 +1,4 @@
-;;; rubic_cube.el --- Rubik's cube in Emacs  -*- lexical-binding: t; -*-
+;;; rubik.el --- Rubik's cube in Emacs  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2018 by Ivan Truskov
 ;; Author: Ivan 'Kurvivor' Truskov <trus19@gmail.com>
@@ -695,11 +695,11 @@
 
 ;;;###autoload
 (defun rubik ()
-  "Start solving rubik's cube"
+  "Start solving rubik's cube."
   (interactive)
   (switch-to-buffer "*Rubik*")
   (rubik-mode))
 
 (provide 'rubik)
 
-;;; rubic_cube.el ends here
+;;; rubik.el ends here
