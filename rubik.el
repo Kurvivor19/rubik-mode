@@ -1,40 +1,45 @@
-;;; rubik.el --- Rubik's cube in Emacs  -*- lexical-binding: t; -*-
+;;; rubik.el --- Rubik's Cube in Emacs  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2018 by Ivan Truskov
+;; Copyright (C) 2018 Ivan Truskov
 ;; Author: Ivan 'Kurvivor' Truskov <trus19@gmail.com>
 ;; Version: 1.0
 ;; Created: 12 December 2017
-;; Keywords: puzzle ascii-art
+;; Keywords: games
+;; Homepage: https://github.com/Kurvivor19/rubik-mode
 ;; Package-Requires: (cl-lib calc (emacs "25.3"))
+
+;; This file is not part of GNU Emacs.
 
 ;;; License
 
-;; If the folllowing license is retained, anybody may change or use
-;; the code in any way.  If this have been helpful, you may thank the
+;; If the following license is retained, anybody may change or use the
+;; code in any way.  If this have been helpful, you may thank the
 ;; author by buying him a beer or shavarma when met.
 
 ;;; Commentary:
 
-;; This package emulates a rubik's cube in Emacs.  Cube is shown in 2
-;; projections, all of its sides are visible that way.  Cube can be
-;; manipulated by commands similar to rotational language notation,
-;; and they can be prefixed with 2 or i to ensure double rotation or
-;; inverse one.
+;; This package emulates a Rubik's Cube in Emacs.  The cube is shown
+;; in 2 projections; this way all its sides are visible.  The cube can
+;; be manipulated by commands similar to rotational language notation,
+;; and they can be prefixed with 2 or i to denote double or inverse
+;; rotation, respectively.
 
 ;; Undo and redo queues are maintained.
 
 ;;; TODO:
 
-;; * randomization of the cube state
-;; * automatic solving
+;; * Randomization of the cube state
+;; * Automatic solving
 
 ;;; Code:
 
-;; requirements
+;;; Requirements
+
 (require 'cl-lib)
 (require 'calc)
 
-;; cube layout
+;;; Cube layout
+
 (defconst rubik-cube-front-default '("             / \\             "
                                      "           /     \\           "
                                      "         / \\     / \\         "
@@ -79,43 +84,38 @@
                                     "             \\_/             "))
 
 (defvar-local rubik-cuve-back nil
-  "Canbas for front of rubik's cube")
+  "Canvas for front of Rubik's Cube.")
 
 (defvar-local rubik-cube-front nil
-  "Canvas for back of rubik's cube")
+  "Canvas for back of Rubik's Cube.")
 
 (defconst side-coord '[(0 14) (7 3) (11 17) (5 5) (1 15) (9 14)]
   "Coordinates of starting points of the cube sides.")
 
-;; faces
-(defgroup Rubik nil
-  "Customization for rubic's cube display"
-  :group 'Applications)
+;;; Faces
+
+(defgroup rubik nil
+  "Customization for Rubik's Cube display."
+  :group 'games)
 
 (defface rubik-red
   '((t . (:background "red")))
-  "Red colored cube side"
-  :group 'Rubik)
+  "Red colored cube side.")
 (defface rubik-orange
   '((t . (:background "orange")))
-  "Orange colored cube side"
-  :group 'Rubik)
+  "Orange colored cube side.")
 (defface rubik-white
   '((t . (:background "antique white")))
-  "white colored cube side"
-  :group 'Rubik)
+  "White colored cube side.")
 (defface rubik-blue
   '((t . (:background "blue")))
-  "Blue colored cube side"
-  :group 'Rubik)
+  "Blue colored cube side.")
 (defface rubik-yellow
   '((t . (:background "yellow")))
-  "Yellow colored cube side"
-  :group 'Rubik)
+  "Yellow colored cube side.")
 (defface rubik-green
   '((t . (:background "green")))
-  "green colored cube side"
-  :group 'Rubik)
+  "Green colored cube side.")
 
 (defconst rubik-faces [rubik-red
                        rubik-white
@@ -124,14 +124,15 @@
                        rubik-blue
                        rubik-orange])
 
-;; painter functions
+;;; Painter functions
+
 (defun rubik-color-painter (face)
-  "Make function that will apply color from FACE to string."
+  "Return function that will apply color from FACE to string."
   (lambda (str beg end prn)
     (add-face-text-property beg end face t str)))
 
 (defun rubik-paint-diamond (cube-screen coord painter)
-  "Paint diamond shape with provided paint function."
+  "Paint diamond shape with provided PAINTER function."
   (let ((l (first coord))
         (c (second coord)))
     (apply painter (nth l cube-screen) c (1+ c) nil nil)
@@ -140,7 +141,7 @@
     (apply painter (nth (incf l) cube-screen) c (1+ c) nil nil)))
 
 (defun rubik-paint-slope-down (cube-screen coord painter)
-  "Paint downward slope with provided paint function."
+  "Paint downward slope with provided PAINTER function."
     (let ((l (first coord))
           (c (second coord)))
       (apply painter (nth l cube-screen) c (+ c 2) nil nil)
@@ -148,7 +149,7 @@
       (apply painter (nth (incf l) cube-screen) (1+ c) (+ c 3) nil nil)))
 
 (defun rubik-paint-slope-up (cube-screen coord painter)
-  "Paint upwards slope with provided paint function."
+  "Paint upward slope with provided PAINTER function."
     (let ((l (first coord))
           (c (second coord)))
       (apply painter (nth l cube-screen) (1- c) (1+ c) nil nil)
@@ -176,7 +177,7 @@
     (list l c)))
 
 (defun rubik-displace-downslope (coord local-number)
-  "Calculate displacements of te cell of front and left sides."
+  "Calculate displacements of the cell of front and left sides."
   (let ((l (first coord))
         (c (second coord))
         (row (/ local-number 3))
@@ -187,7 +188,7 @@
     (list l c)))
 
 (defun rubik-displace-upslope (coord local-number)
-  "Calculate displacements of te cell of front and left sides."
+  "Calculate displacements of the cell of front and left sides."
   (let ((l (first coord))
         (c (second coord))
         (row (/ local-number 3))
@@ -202,7 +203,7 @@
   (list (/ cell-number 9) (mod cell-number 9)))
 
 (defun rubik-paint-cell (front back number color)
-  "Color cell with given NUMBER to a given COLOR on either FRONT or BACK."
+  "Color cell with given NUMBER as a given COLOR on either FRONT or BACK."
   (destructuring-bind (side local-number) (rubik-get-local-number number)
     (let ((canvas (if (< side 3) front back))
           (painter (rubik-color-painter (aref rubik-faces color)))
@@ -216,7 +217,6 @@
                         ((2 3) 'rubik-displace-upslope))))
       (apply filler canvas (apply translator (aref side-coord side) local-number nil) painter nil))))
 
-
 (defun rubik-paint-cube (cube-state)
   "Regenerate display variables and show CUBE-STATE on them."
   (setq rubik-cube-front (mapcar #'copy-sequence rubik-cube-front-default))
@@ -224,7 +224,8 @@
   (loop for i from 1 to (* 6 9) do
         (rubik-paint-cell rubik-cube-front rubik-cube-back (1- i) (aref cube-state (1- i)))))
 
-;; definitions for rotational notation
+;;; Definitions for rotational notation
+
 (defconst rubik-i '(cplx 0 1))
 (defconst rubik-neg-i '(cplx 0 -1))
 
@@ -270,7 +271,8 @@
         (cons rubik-neg-i (rubik-substitute rubikside-renumbering-clockwise
                                             rubikside-renumbering-clockwise
                                             rubikside-renumbering-clockwise))
-        ;; we could call with 4 rotations or define a constant for identity. But therte is no need, really
+        ;; We could call with 4 rotations or define a constant for identity.
+        ;; But therte is no need, really.
         (cons 1 (list 0 1 2 3 4 5 6 7 8))))
 
 (defun rubik-expand-substitution (sub)
@@ -306,7 +308,8 @@
     (loop for i from 0 to (1- (length second)) do
           (aset state (nth i transform) (aref second i)))))
 
-;; definitions of common transformations
+;;; Definitions of common transformations
+
 (defconst rubik-U
   rubik-turn-top-substitution)
 
@@ -499,7 +502,8 @@
                  rubik-desc-rot-1-3
                  rubik-desc-rot-1-3)))
 
-;; mode definitions
+;;; Mode definitions
+
 (defvar-local cube-state nil
   "State of the cube that is being processed")
 
@@ -520,7 +524,7 @@
 
 (defun rubik-display-cube ()
   "Draw current cube state, assuming empty buffer."
-  ;; first, update canvasses according to  the cube state
+  ;; First, update canvasses according to the cube state
   (rubik-paint-cube cube-state)
   (let ((w (length (first rubik-cube-front-default)))
         (h (length rubik-cube-front-default)))
@@ -533,7 +537,7 @@
     (insert-rectangle rubik-cube-back)))
 
 (defun rubik-display-undo ()
-  "Print undo information."
+  "Insert undo information at point."
   (loop with line-str = "\nUndo: "
         for cmd in (reverse (cdr cube-undo))
         for i = 1 then (1+ i)
@@ -545,7 +549,7 @@
         finally (insert line-str)))
 
 (defun rubik-display-redo ()
-  "Print undo information."
+  "Insert redo information at point."
   (loop with line-str = "\nRedo: "
         for cmd in (cdr cube-redo)
         for i = 1 then (1+ i)
@@ -578,7 +582,8 @@
          (rubik-draw-all)))))
 
 (defmacro rubik-define-commands (&rest transformations)
-  "Bulk definition of commandsthat wrap itens in TRANSFORMATIONS."
+  "Bulk definition of commands that wrap items in TRANSFORMATIONS."
+  (declare (indent 0))
   (let ((head (car transformations))
         (command-name (cadr transformations))
         (tail (cddr transformations)))
@@ -588,15 +593,16 @@
        ,(when tail
           `(rubik-define-commands ,@tail)))))
 
-(rubik-define-commands rubik-U "Upper" rubik-U2 "Upper twice" rubik-Ui "Upper inverted"
-                       rubik-F "Front" rubik-F2 "Front twice" rubik-Fi "Front inverted"
-                       rubik-R "Right" rubik-R2 "Right twice" rubik-Ri "Right inverted"
-                       rubik-L "Left" rubik-L2 "Left twice" rubik-Li "Left inverted"
-                       rubik-B "Back" rubik-B2 "Back twice" rubik-Bi "Back inverted"
-                       rubik-D "Down" rubik-D2 "Down twice" rubik-Di "Down inverted"
-                       rubik-x "X rotation" rubik-x2 "X overturn" rubik-xi "X rotation inverted"
-                       rubik-y "Y rotation" rubik-y2 "Y overturn" rubik-yi "Y rotation inverted"
-                       rubik-z "Z rotation" rubik-z2 "Z overturn" rubik-zi "Z rotation inverted")
+(rubik-define-commands
+  rubik-U "Upper" rubik-U2 "Upper twice" rubik-Ui "Upper inverted"
+  rubik-F "Front" rubik-F2 "Front twice" rubik-Fi "Front inverted"
+  rubik-R "Right" rubik-R2 "Right twice" rubik-Ri "Right inverted"
+  rubik-L "Left" rubik-L2 "Left twice" rubik-Li "Left inverted"
+  rubik-B "Back" rubik-B2 "Back twice" rubik-Bi "Back inverted"
+  rubik-D "Down" rubik-D2 "Down twice" rubik-Di "Down inverted"
+  rubik-x "X rotation" rubik-x2 "X overturn" rubik-xi "X rotation inverted"
+  rubik-y "Y rotation" rubik-y2 "Y overturn" rubik-yi "Y rotation inverted"
+  rubik-z "Z rotation" rubik-z2 "Z overturn" rubik-zi "Z rotation inverted")
 
 (defconst rubik-reverse-commands
   '((rubik-U-command . rubik-Ui-command)
@@ -693,7 +699,7 @@
     map))
 
 (define-derived-mode rubik-mode special-mode
-  "rubik's cube")
+  "Mode for solving Rubik's Cube.")
 
 (add-hook 'rubik-mode-hook
           (lambda ()
@@ -701,7 +707,7 @@
 
 ;;;###autoload
 (defun rubik ()
-  "Start solving rubik's cube."
+  "Start solving Rubik's Cube."
   (interactive)
   (switch-to-buffer "*Rubik*")
   (rubik-mode))
