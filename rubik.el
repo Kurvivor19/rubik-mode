@@ -83,7 +83,7 @@
                                     "           \\_   _/           "
                                     "             \\_/             "))
 
-(defvar-local rubik-cuve-back nil
+(defvar-local rubik-cube-back nil
   "Canvas for front of Rubik's Cube.")
 
 (defvar-local rubik-cube-front nil
@@ -272,7 +272,7 @@
                                             rubikside-renumbering-clockwise
                                             rubikside-renumbering-clockwise))
         ;; We could call with 4 rotations or define a constant for identity.
-        ;; But therte is no need, really.
+        ;; But there is no need, really.
         (cons 1 (list 0 1 2 3 4 5 6 7 8))))
 
 (defun rubik-expand-substitution (sub)
