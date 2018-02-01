@@ -128,7 +128,7 @@
 
 (defun rubik-color-painter (face)
   "Return function that will apply color from FACE to string."
-  (lambda (str beg end prn)
+  (lambda (str beg end _prn)
     (add-face-text-property beg end face t str)))
 
 (defun rubik-paint-diamond (cube-screen coord painter)
@@ -214,12 +214,12 @@
                         ((2 3) #'rubik-displace-upslope))))
       (funcall filler canvas (funcall translator (aref side-coord side) local-number) painter))))
 
-(defun rubik-paint-cube (cube-state)
-  "Regenerate display variables and show CUBE-STATE on them."
+(defun rubik-paint-cube (state)
+  "Regenerate display variables and show cube STATE on them."
   (setq rubik-cube-front (mapcar #'copy-sequence rubik-cube-front-default))
   (setq rubik-cube-back (mapcar #'copy-sequence rubik-cube-back-default))
   (dotimes (i (* 6 9))
-    (rubik-paint-cell rubik-cube-front rubik-cube-back i (aref cube-state i))))
+    (rubik-paint-cell rubik-cube-front rubik-cube-back i (aref state i))))
 
 ;;; Definitions for rotational notation
 
@@ -281,7 +281,7 @@
            do (dotimes (j 9)
                 (aset res (+ j target-offset)
                       (+ base-offset (nth j side-reorder))))
-           finally return (append res nil)))
+           finally return (append res ())))
 
 (defconst rubik-turn-top-substitution
   (let ((temp (vconcat (number-sequence 0 (1- (* 9 6)))))
@@ -294,7 +294,7 @@
     (cl-loop for (loc num) in side-offsets do
              (dotimes (i 3)
                (aset temp (+ loc i) (+ num i))))
-    (append temp nil))
+    (append temp ()))
   "Complete cube substitution for clockwise rotation on top.")
 
 (defun rubik-apply-transformation (state transform)
@@ -566,14 +566,15 @@
 (defmacro rubik-define-command (transformation desc)
   "Generalized declaration of command for applying TRANSFORMATION to the cube state."
   (let ((command-name (intern (concat (symbol-name transformation) "-command"))))
-    (put command-name 'name desc)
-    `(defun ,command-name (&optional arg)
-       (interactive)
-       (rubik-apply-transformation cube-state ,transformation)
-       (unless arg
-         (setcdr cube-redo ())
-         (setcdr cube-undo (cons ',command-name (cdr cube-undo)))
-         (rubik-draw-all)))))
+    `(progn
+       (put ',command-name 'name ,desc)
+       (defun ,command-name (&optional arg)
+         (interactive)
+         (rubik-apply-transformation cube-state ,transformation)
+         (unless arg
+           (setcdr cube-redo ())
+           (setcdr cube-undo (cons ',command-name (cdr cube-undo)))
+           (rubik-draw-all))))))
 
 (defmacro rubik-define-commands (&rest transformations)
   "Bulk definition of commands that wrap items in TRANSFORMATIONS."
