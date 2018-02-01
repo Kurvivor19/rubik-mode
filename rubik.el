@@ -7,6 +7,12 @@
 ;; Keywords: puzzle ascii-art
 ;; Package-Requires: (cl-lib calc (emacs "25.3"))
 
+;;; License
+
+;; If the folllowing license is retained, anybody may change or use
+;; the code in any way.  If this have been helpful, you may thank the
+;; author by buying him a beer or shavarma when met.
+
 ;;; Commentary:
 
 ;; This package emulates a rubik's cube in Emacs.  Cube is shown in 2
