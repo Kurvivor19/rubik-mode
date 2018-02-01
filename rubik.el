@@ -698,7 +698,7 @@
 (defun rubik ()
   "Start solving Rubik's Cube."
   (interactive)
-  (switch-to-buffer "*Rubik*")
+  (pop-to-buffer "*Rubik*")
   (rubik-mode))
 
 (provide 'rubik)
