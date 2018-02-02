@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2018 Ivan Truskov
 ;; Author: Ivan 'Kurvivor' Truskov <trus19@gmail.com>
-;; Version: 1.0
+;; Version: 1.1
 ;; Created: 12 December 2017
 ;; Keywords: games
 ;; Homepage: https://github.com/Kurvivor19/rubik-mode
