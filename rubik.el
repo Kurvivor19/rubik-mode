@@ -1,4 +1,4 @@
-;;; rubik.el --- Rubik's Cube in Emacs  -*- lexical-binding: t; -*-
+;;; rubik.el --- Rubik's Cube  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2018 Ivan Truskov
 ;; Author: Ivan 'Kurvivor' Truskov <trus19@gmail.com>
@@ -89,7 +89,7 @@
 (defvar-local rubik-cube-front ()
   "Canvas for back of Rubik's Cube.")
 
-(defconst side-coord [(0 14) (7 3) (11 17) (5 5) (1 15) (9 14)]
+(defconst rubik-side-coord [(0 14) (7 3) (11 17) (5 5) (1 15) (9 14)]
   "Coordinates of starting points of the cube sides.")
 
 ;;; Faces
@@ -98,24 +98,35 @@
   "Customization for Rubik's Cube display."
   :group 'games)
 
+(defcustom rubik-shuffle 5
+  "Number of random changes to the initial state."
+  :type 'integer
+  :group 'rubik)
+
 (defface rubik-red
   '((t . (:background "red")))
-  "Red colored cube side.")
+  "Red colored cube side."
+  :group 'rubik)
 (defface rubik-orange
   '((t . (:background "orange")))
-  "Orange colored cube side.")
+  "Orange colored cube side."
+  :group 'rubik)
 (defface rubik-white
   '((t . (:background "antique white")))
-  "White colored cube side.")
+  "White colored cube side."
+  :group 'rubik)
 (defface rubik-blue
   '((t . (:background "blue")))
-  "Blue colored cube side.")
+  "Blue colored cube side."
+  :group 'rubik)
 (defface rubik-yellow
   '((t . (:background "yellow")))
-  "Yellow colored cube side.")
+  "Yellow colored cube side."
+  :group 'rubik)
 (defface rubik-green
   '((t . (:background "green")))
-  "Green colored cube side.")
+  "Green colored cube side."
+  :group 'rubik)
 
 (defconst rubik-faces [rubik-red
                        rubik-white
@@ -162,7 +173,7 @@
                            (number-sequence 0 5))))
 
 (defun rubik-displace-diamond (coord local-number)
-  "Calculate displacement of the cell of top and bottom sides."
+  "Calculate displacement of the cell of top and bottom sides.  COORD is location of the side, LOCAL-NUMBER is coordinates of cell on that side."
   (let ((l (cl-first coord))
         (c (cl-second coord))
         (row (/ local-number 3))
@@ -174,7 +185,7 @@
     (list l c)))
 
 (defun rubik-displace-downslope (coord local-number)
-  "Calculate displacements of the cell of front and left sides."
+  "Calculate displacements of the cell of front and left sides.  COORD is location of the side, LOCAL-NUMBER is coordinates of cell on that side."
   (let ((l (cl-first coord))
         (c (cl-second coord))
         (row (/ local-number 3))
@@ -185,7 +196,7 @@
     (list l c)))
 
 (defun rubik-displace-upslope (coord local-number)
-  "Calculate displacements of the cell of back and right sides."
+  "Calculate displacements of the cell of back and right sides.  COORD is location of the side, LOCAL-NUMBER is coordinates of cell on that side."
   (let ((l (cl-first coord))
         (c (cl-second coord))
         (row (/ local-number 3))
@@ -200,7 +211,7 @@
   (list (/ cell-number 9) (mod cell-number 9)))
 
 (defun rubik-paint-cell (front back number color)
-  "Color cell with given NUMBER as a given COLOR on either FRONT or BACK."
+  "On either FRONT or BACK color cell with given NUMBER as a given COLOR."
   (cl-destructuring-bind (side local-number) (rubik-get-local-number number)
     (let ((canvas (if (< side 3) front back))
           (painter (rubik-color-painter (aref rubik-faces color)))
@@ -212,7 +223,7 @@
                         ((0 5) #'rubik-displace-diamond)
                         ((1 4) #'rubik-displace-downslope)
                         ((2 3) #'rubik-displace-upslope))))
-      (funcall filler canvas (funcall translator (aref side-coord side) local-number) painter))))
+      (funcall filler canvas (funcall translator (aref rubik-side-coord side) local-number) painter))))
 
 (defun rubik-paint-cube (state)
   "Regenerate display variables and show cube STATE on them."
@@ -248,7 +259,7 @@
   "Compose as many rotations in list TURNS as needed."
   (cl-reduce #'rubik-compose-rot turns))
 
-(defconst rubikside-renumbering-clockwise
+(defconst rubik-side-renumbering-clockwise
   '(6 3 0 7 4 1 8 5 2))
 
 (defun rubik-compose-subst (sub-1 sub-2)
@@ -260,12 +271,12 @@
   (cl-reduce #'rubik-compose-subst subs))
 
 (defconst rubik-side-rotations
-  (list (cons rubik-i rubikside-renumbering-clockwise)
-        (cons -1 (rubik-substitute rubikside-renumbering-clockwise
-                                   rubikside-renumbering-clockwise))
-        (cons rubik-neg-i (rubik-substitute rubikside-renumbering-clockwise
-                                            rubikside-renumbering-clockwise
-                                            rubikside-renumbering-clockwise))
+  (list (cons rubik-i rubik-side-renumbering-clockwise)
+        (cons -1 (rubik-substitute rubik-side-renumbering-clockwise
+                                   rubik-side-renumbering-clockwise))
+        (cons rubik-neg-i (rubik-substitute rubik-side-renumbering-clockwise
+                                            rubik-side-renumbering-clockwise
+                                            rubik-side-renumbering-clockwise))
         ;; We could call with 4 rotations or define a constant for identity.
         ;; But there is no need, really.
         (cons 1 (number-sequence 0 8))))
@@ -286,9 +297,9 @@
 (defconst rubik-turn-top-substitution
   (let ((temp (vconcat (number-sequence 0 (1- (* 9 6)))))
         (side-offsets '((9 36) (18 9) (27 18) (36 27)))
-        (rotation (rubik-substitute rubikside-renumbering-clockwise
-                                    rubikside-renumbering-clockwise
-                                    rubikside-renumbering-clockwise)))
+        (rotation (rubik-substitute rubik-side-renumbering-clockwise
+                                    rubik-side-renumbering-clockwise
+                                    rubik-side-renumbering-clockwise)))
     (dotimes (i 9)
       (aset temp i (nth i rotation)))
     (cl-loop for (loc num) in side-offsets do
@@ -298,7 +309,7 @@
   "Complete cube substitution for clockwise rotation on top.")
 
 (defun rubik-apply-transformation (state transform)
-  "Apply TRANSFORM to STATE of the cube."
+  "Change STATE of the cube by applying TRANSFORM."
   (let ((second (copy-sequence state)))
     (dotimes (i (length second))
       (aset state (nth i transform) (aref second i)))))
@@ -499,17 +510,20 @@
 
 ;;; Mode definitions
 
-(defvar-local cube-state []
+(defvar-local rubik-cube-state []
   "State of the cube that is being processed.")
 
-(defvar-local cube-undo '(undo)
+(defvar-local rubik-cube-undo (list 'undo)
   "List of previously executed commands.")
 
-(defvar-local cube-redo '(redo)
+(defvar-local rubik-cube-redo (list 'redo)
   "List of previously undone commands.")
 
+(defvar-local rubik-cube-undo-hidden (list 'undo)
+  "Hidden undo sequence")
+
 (defun rubik-center-string (str l)
-  "Make string of length L with STR centered in it."
+  "Add spaces to STR from both sides until it has length L."
   (if (> (length str) l)
       (substring str l)
     (let* ((sl (length str))
@@ -520,7 +534,7 @@
 (defun rubik-display-cube ()
   "Draw current cube state, assuming empty buffer."
   ;; First, update canvasses according to the cube state
-  (rubik-paint-cube cube-state)
+  (rubik-paint-cube rubik-cube-state)
   (let ((w (length (cl-first rubik-cube-front-default)))
         (h (length rubik-cube-front-default)))
     (insert (format "%s%s\n"
@@ -534,7 +548,7 @@
 (defun rubik-display-undo ()
   "Insert undo information at point."
   (cl-loop with line-str = "\nUndo: "
-           for cmd in (reverse (cdr cube-undo))
+           for cmd in (reverse (cdr rubik-cube-undo))
            for i = 1 then (1+ i)
            do (progn
                 (setq line-str (concat line-str (format "%d. %s " i (get cmd 'name))))
@@ -546,7 +560,7 @@
 (defun rubik-display-redo ()
   "Insert redo information at point."
   (cl-loop with line-str = "\nRedo: "
-           for cmd in (cdr cube-redo)
+           for cmd in (cdr rubik-cube-redo)
            for i = 1 then (1+ i)
            do (progn
                 (setq line-str (concat line-str (format "%d. %s " i (get cmd 'name))))
@@ -564,16 +578,16 @@
     (rubik-display-redo)))
 
 (defmacro rubik-define-command (transformation desc)
-  "Generalized declaration of command for applying TRANSFORMATION to the cube state."
+  "Generalized declaration of command for applying TRANSFORMATION to the cube state.  Command has DESC in its plist as `command-name'."
   (let ((command-name (intern (concat (symbol-name transformation) "-command"))))
     `(progn
        (put ',command-name 'name ,desc)
        (defun ,command-name (&optional arg)
          (interactive)
-         (rubik-apply-transformation cube-state ,transformation)
+         (rubik-apply-transformation rubik-cube-state ,transformation)
          (unless arg
-           (setcdr cube-redo ())
-           (setcdr cube-undo (cons ',command-name (cdr cube-undo)))
+           (setcdr rubik-cube-redo ())
+           (setcdr rubik-cube-undo (cons ',command-name (cdr rubik-cube-undo)))
            (rubik-draw-all))))))
 
 (defmacro rubik-define-commands (&rest transformations)
@@ -620,21 +634,22 @@
 (defun rubik-reset ()
   "Set cube to initial state."
   (interactive)
-  (setq cube-state (rubik-make-initial-cube))
-  (setq cube-undo '(undo))
-  (setq cube-redo '(redo))
+  (setq rubik-cube-state (rubik-make-initial-cube))
+  (setq rubik-cube-undo (list 'undo))
+  (setq rubik-cube-redo (list 'redo))
+  (setq rubik-cube-undo-hidden (list 'undo))
   (rubik-draw-all))
 
 (defun rubik-undo (&optional arg)
   "Undo up to ARG commands from undo list."
   (interactive "p")
   (dotimes (_ (or arg 1))
-    (let ((lastcmd (cadr cube-undo)))
+    (let ((lastcmd (cadr rubik-cube-undo)))
       (when lastcmd
         (let ((revcmd (or (cdr (assoc lastcmd rubik-reverse-commands))
                           (car (rassoc lastcmd rubik-reverse-commands)))))
-          (setcdr cube-redo (cons lastcmd (cdr cube-redo)))
-          (setcdr cube-undo (cddr cube-undo))
+          (setcdr rubik-cube-redo (cons lastcmd (cdr rubik-cube-redo)))
+          (setcdr rubik-cube-undo (cddr rubik-cube-undo))
           (funcall revcmd t)))))
   (rubik-draw-all))
 
@@ -642,12 +657,67 @@
   "Redo up to ARG commands."
   (interactive "p")
   (dotimes (_ (or arg 1))
-    (let ((lastcmd (cadr cube-redo)))
+    (let ((lastcmd (cadr rubik-cube-redo)))
       (when lastcmd
-        (setcdr cube-undo (cons lastcmd (cdr cube-undo)))
-        (setcdr cube-redo (cddr cube-redo))
+        (setcdr rubik-cube-undo (cons lastcmd (cdr rubik-cube-undo)))
+        (setcdr rubik-cube-redo (cddr rubik-cube-redo))
         (funcall lastcmd t))))
   (rubik-draw-all))
+
+(defun rubik-hide-queues ()
+  "Hide undo queue."
+  (interactive)
+  (setcdr rubik-cube-undo-hidden
+          (append (cdr rubik-cube-undo) (cdr rubik-cube-undo-hidden)))
+  (setcdr rubik-cube-undo ())
+  (setcar rubik-cube-redo ())
+  (rubik-draw-all))
+
+(defun rubik-rollback ()
+  "Undo all not hidden changes."
+  (interactive)
+  (rubik-cube-undo (length (cdr rubik-cube-undo))))
+
+(defun rubik-unhide-queues ()
+  "Restore saved undo queue."
+  (interactive)
+  (setcdr (last rubik-cube-undo) (cdr rubik-cube-undo-hidden))
+  (setcdr rubik-cube-undo-hidden ())
+  (rubik-draw-all))
+
+(defconst rubik-command-groups
+  (let ((temp '([rubik-U-command rubik-U2-command rubik-Ui-command]
+                [rubik-F-command rubik-F2-command rubik-Fi-command]
+                [rubik-R-command rubik-R2-command rubik-Ri-command]
+                [rubik-L-command rubik-L2-command rubik-Li-command]
+                [rubik-B-command rubik-B2-command rubik-Bi-command]
+                [rubik-D-command rubik-D2-command rubik-Di-command]
+                [rubik-x-command rubik-x2-command rubik-xi-command
+                 rubik-y-command rubik-y2-command rubik-yi-command
+                 rubik-z-command rubik-z2-command rubik-zi-command])))
+    (setcdr (last temp) temp)
+    temp)
+  "Cyclic list of commands that transform the cube.")
+
+(defun rubik-random-from-group (group)
+  "Randomply select one element from vector GROUP."
+  (aref group (random (length group))))
+
+(defun rubik-shuffle (&optional arg)
+  "Randomly apply ARG or variable `rubik-shuffle' random transformations to cube."
+  (interactive "P")
+  (let ((n (or (and arg (prefix-numeric-value arg))
+               rubik-shuffle))
+        (iter rubik-command-groups))
+    (dotimes (_ n)
+      ;; something like a poisson distribution
+      ;; magic number chosen based on aestethic value
+      (while (< 0 (random 19))
+        (setq iter (cdr iter)))
+      ;; undo information is not supressed
+      (funcall (rubik-random-from-group (car iter)))))
+  ;; hide steps made
+  (rubik-hide-queues))
 
 (defvar rubik-mode-map
   (let ((map (make-sparse-keymap))
@@ -685,6 +755,9 @@
     (define-key map "i" map-i)
     (define-key map (kbd "M-u") 'rubik-undo)
     (define-key map (kbd "M-r") 'rubik-redo)
+    (define-key map (kbd "M-h") 'rubik-hide-queues)
+    (define-key map (kbd "M-s") 'rubik-unhide-queues)
+    (define-key map (kbd "M-f") 'rubik-shuffle)
     map))
 
 (define-derived-mode rubik-mode special-mode

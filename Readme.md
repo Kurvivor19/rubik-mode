@@ -37,3 +37,7 @@ For convenience, there are undo and redo queues of commands; undoing
 is invoked with M-u, and redoing with M-r.
 
 To return to the initial state, standatd command g is used.
+
+To have something to solve, use command M-s to shuffle the cube
+randomly. If result is too hard to solve, one can reverse the shuffle
+after displaying its undo queue with M-s.
