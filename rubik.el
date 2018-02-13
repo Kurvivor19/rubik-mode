@@ -6,7 +6,7 @@
 ;; Created: 12 December 2017
 ;; Keywords: games
 ;; Homepage: https://github.com/Kurvivor19/rubik-mode
-;; Package-Requires: (cl-lib calc (emacs "25.3"))
+;; Package-Requires: ((cl-lib "1.0") (emacs "25.3"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -676,7 +676,7 @@
 (defun rubik-rollback ()
   "Undo all not hidden changes."
   (interactive)
-  (rubik-cube-undo (length (cdr rubik-cube-undo))))
+  (rubik-undo (length (cdr rubik-cube-undo))))
 
 (defun rubik-unhide-queues ()
   "Restore saved undo queue."
