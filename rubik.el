@@ -137,10 +137,10 @@
 
 ;;; Painter functions
 
-(defun rubik-color-painter (face)
+(defun rubik-color-painter (face-index)
   "Return function that will apply color from FACE to string."
   (lambda (str beg end _prn)
-    (add-face-text-property beg end face t str)))
+    (add-face-text-property beg end (aref rubik-faces face-index) t str)))
 
 (defun rubik-paint-diamond (cube-screen coord painter)
   "Paint diamond shape with provided PAINTER function."
@@ -214,7 +214,7 @@
   "On either FRONT or BACK color cell with given NUMBER as a given COLOR."
   (cl-destructuring-bind (side local-number) (rubik-get-local-number number)
     (let ((canvas (if (< side 3) front back))
-          (painter (rubik-color-painter (aref rubik-faces color)))
+          (painter (funcall rubik-painter-function color))
           (filler (cl-case side
                     ((0 5) #'rubik-paint-diamond)
                     ((1 4) #'rubik-paint-slope-down)
@@ -265,6 +265,18 @@
 (defun rubik-compose-subst (sub-1 sub-2)
   "Compose SUB-1 and SUB-2 into new substitution."
   (mapcar (lambda (i1) (nth i1 sub-2)) sub-1))
+
+(defun rubik-decompose-subst (comp sub-1)
+  "Decompose COMP so that `rubik-compose-subst' with SUB-1 and result will produce COMP."
+  (let ((res (make-vector (length sub-1) 0)))
+    (cl-loop for els in sub-1
+             for elc in comp do
+             (aset res els elc)
+             finally return (append res '()))))
+
+(defun rubik-substract-subst (comp sub-2)
+  "Substract from COMP a substitution SUB-2."
+  (cl-loop for el in comp collect (cl-search (list el) sub-2)))
 
 (defun rubik-substitute (&rest subs)
   "Compose all substitutions in SUBS."
@@ -521,6 +533,9 @@
 
 (defvar-local rubik-cube-undo-hidden (list 'undo)
   "Hidden undo sequence")
+
+(defvar rubik-painter-function 'rubik-color-painter
+  "Generator for painter function.")
 
 (defun rubik-center-string (str l)
   "Add spaces to STR from both sides until it has length L."
