@@ -123,47 +123,57 @@
                      do (aset solver-target-state (car ind) el))))))))
 
 (cl-iter-defun
- solver-seeker-deep (depth used-transformations)
+ solver-seeker-deep (depth &optional used-transformations)
  "Iterator that performs depth-first search up to DEPTH among USED-TRANSFORMATIONS. If no transformations are supplied, `solver-transformation-groups' are used instead."
- (let* ((res (list (cl-loop for i from 1 to (* 9 6) vconcat (list (1- i)))))
-        (transforms (list (if used-transformations
-                              used-transformations
-                            solver-transformation-groups)))
-        (pos-upper transforms)
-        (pos-lower (caar pos-upper)))
+ (let* ((transforms (if used-transformations
+                        used-transformations
+                      solver-transformation-groups))
+        (pos-upper (list (copy-tree transforms)))
+        (pos-lower (caar pos-upper))
+        (res (cl-loop for _ from 1 to 2 collect
+                      (cl-loop for i from 1 to (length (car pos-lower))
+                               collect (1- i)))))
    ;; yield identity
-   (cl-iter-yield res)
-   ;; we stop where there is no more elements to inspect
-   (while pos-upper
-     (if pos-lower
-         ;; yield element and go down
-         (progn
-           (push (cdr res (car pos-lower)))
-           (setcar res (rubik-substitute (car res) (car pos-lower)))
-           (cl-iter-yield res)
-           ;; now go down
-           (if (> (1+ depth) (length res))
-               (progn
-                 (push pos-lower pow-upper)
-                 (if (member (car pos-lower) (car transforms))
+   (iter-yield res)
+   (cl-flet
+       ((get-expanded-result ()
+                             (cons (rubik-substitute (car res) (car pos-lower))
+                                   (cons (car pos-lower) (cdr res))))
+        (go-down ()
+                 (push (car pos-lower) (cdr res))
+                 (setcar res (rubik-substitute (car res) (cadr res)))
+                 (push pos-lower pos-upper)
+                 (if (member (cadr res) (car transforms))
                      (push (cdr transforms) pos-upper)
                    (push transforms pos-upper))
                  (setq pos-lower (caar pos-upper)))
-             ;; remove element and move forward
-             (setcar res (rubik-substract-subst (car res) (cadr res)))
-             (pop (cdr res))
-             (setq pos-lower (cdr pos-lower))))
-       (setcar pos-upper (cdar pos-upper))
-       ;; skip same command group if needed
-       (when (member (cadr res) (caar pos-upper))
-         (setcar pos-upper (cdar pos-upper)))
-       (if (car pos-upper)
-           (setq pos-lower (caar pos-upper))
-         (pop pos-upper)
-         (setq pos-lower (cdr pop pos-upper))
-         ;; remove element as we move on
-         (setcar res (rubik-substract-subst (car res) (cadr res)))
-         (pop (cdr res)))))))
+        (go-up ()
+               (setcar res (rubik-substract-subst (car res) (cadr res)))
+               (pop (cdr res))
+               (pop pos-upper)
+               (setq pos-lower (pop pos-upper)))
+        (go-forward ()
+                    (setq pos-lower (cdr pos-lower))
+                    (unless pos-lower
+                      (when pos-upper
+                        (setcar pos-upper (cdar pos-upper))
+                        (when (member (cadr res) (caar pos-upper))
+                          (setcar pos-upper (cdar pos-upper)))
+                        (setq pos-lower (caar pos-upper))))))
+     ;; we stop where there is no more elements to inspect
+     (while pos-upper
+       (if pos-lower
+           ;; yield element and go down
+           (progn
+             (iter-yield (get-expanded-result))
+             ;; now go down
+             (if (> (1+ depth) (length res))
+                 (go-down)
+               (go-forward)))
+         (go-forward)
+         (unless (car pos-upper)
+           (go-up)
+           (go-forward)))))))
 
 ;; commands
 
