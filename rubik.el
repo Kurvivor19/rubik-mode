@@ -687,7 +687,7 @@
   (setcdr rubik-cube-undo-hidden
           (append (cdr rubik-cube-undo) (cdr rubik-cube-undo-hidden)))
   (setcdr rubik-cube-undo ())
-  (setcar rubik-cube-redo ())
+  (setcdr rubik-cube-redo ())
   (rubik-draw-all))
 
 (defun rubik-rollback ()

@@ -58,9 +58,7 @@
                                                  (not (= el idx)))))))
 
 (defconst solver-bottom-pattern
-  (let ((state (copy-sequence solver-top-pattern)))
-    (rubik-apply-transformation state rubik-x2)
-    state))
+    (rubik-apply-transformation solver-top-pattern rubik-x2))
 
 (defconst solver-middle-pattern
   (let ((pat (make-vector (* 6 9) 1)))
@@ -215,9 +213,16 @@
   (interactive "NDepth of a search: ")
   (solver-prepare-states)
   (let ((answer (solver-find-solution depth)))
-    (when answer
-      (with-current-buffer "*Messages*"
-        (pp answer)))))
+    (if (not answer)
+        (message "Solution not found in %d steps" depth)
+      (if (not (cdr answer))
+          (message "Solution is identity")
+        (message "Solution found in %d steps" (1- (length answer)))
+        (setcdr rubik-cube-redo ())
+        (cl-loop for trans in (cdr (nreverse answer))
+                 for cmd = (intern (concat (symbol-name trans) "-command"))
+                 do (push cmd (cdr rubik-cube-redo))))))
+  (rubik-draw-all))
 
 (defun solver-mark (idx)
   (let ((temp-v (vconcat (cl-mapcar
