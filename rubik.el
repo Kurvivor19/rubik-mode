@@ -321,10 +321,11 @@
   "Complete cube substitution for clockwise rotation on top.")
 
 (defun rubik-apply-transformation (state transform)
-  "Change STATE of the cube by applying TRANSFORM."
+  "Return STATE of the cube after applying TRANSFORM."
   (let ((second (copy-sequence state)))
-    (dotimes (i (length second))
-      (aset state (nth i transform) (aref second i)))))
+    (dotimes (i (length state))
+      (aset second (nth i transform) (aref state i)))
+    second))
 
 ;;; Definitions of common transformations
 
@@ -599,7 +600,8 @@
        (put ',command-name 'name ,desc)
        (defun ,command-name (&optional arg)
          (interactive)
-         (rubik-apply-transformation rubik-cube-state ,transformation)
+         (setq rubik-cube-state
+               (rubik-apply-transformation rubik-cube-state ,transformation))
          (unless arg
            (setcdr rubik-cube-redo ())
            (setcdr rubik-cube-undo (cons ',command-name (cdr rubik-cube-undo)))

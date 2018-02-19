@@ -79,15 +79,31 @@
 
 ;; solver functions
 
+(defmacro solver-arrange-indice (elems indice)
+  (let ((alist-temp (gensym))
+        (el-temp (gensym))
+        (idx-temp (gensym)))
+    `(let ((,alist-temp
+            (cl-loop for el in ,elems
+                     for ind in ,indice
+                     collect (cons el ind)))
+           ,el-temp ,idx-temp)
+       (setq ,alist-temp (cl-sort ,alist-temp #'< :key #'car))
+       (cl-loop for (el . ind) in ,alist-temp
+                do (progn (push el ,el-temp)
+                          (push ind ,idx-temp)))
+       (setq ,elems (nreverse ,el-temp))
+       (setq ,indice (nreverse ,idx-temp)))))
+
 (defun solver-prepare-states ()
   "Generate base and target states from current cube state"
   (setq solver-base-state
-        (cl-loop for el across rubik-code-state
+        (cl-loop for el across rubik-cube-state
                  with temp = 1
                  for new-el = (cl-case el
-                                (0 0)
-                                (1 (incf temp))
-                                (t (+ el 60)))
+                                (0 (list 0))
+                                (1 (list (incf temp)))
+                                (t (list (+ el 60))))
                  vconcat new-el))
   (setq solver-target-state (copy-sequence solver-base-state))
   (let ((class (make-vector 3 0))
@@ -103,8 +119,9 @@
                  ((0 2 6 8) (incf (aref class 1)))
                  ((1 3 5 7) (incf (aref class 2)))))
              finally
-             (progn (nreverse elems)
-                    (nreverse indice)))
+             (progn
+               (setf elems (nreverse elems)
+                     indice (nreverse indice))))
     (if (= 0 (cl-reduce #'+ class))
         (user-error "Nothing to solve for")
       (if (> (aref class 0) 0)
@@ -117,65 +134,90 @@
                     (aref class 2))
                  2)
               (user-error "Two or more squares must be marked to have a target for solving")
-            (setcdr (lastcdr indice) indice)
+            (solver-arrange-indice elems indice)
+            (setcdr (last indice) indice)
             (cl-loop for el in elems
                      for ind = (cdr indice) then (cdr ind)
                      do (aset solver-target-state (car ind) el))))))))
 
-(cl-iter-defun
+(iter-defun
  solver-seeker-deep (depth &optional used-transformations)
  "Iterator that performs depth-first search up to DEPTH among USED-TRANSFORMATIONS. If no transformations are supplied, `solver-transformation-groups' are used instead."
- (let* ((transforms (if used-transformations
-                        used-transformations
-                      solver-transformation-groups))
-        (pos-upper (list (copy-tree transforms)))
-        (pos-lower (caar pos-upper))
-        (res (cl-loop for _ from 1 to 2 collect
-                      (cl-loop for i from 1 to (length (car pos-lower))
-                               collect (1- i)))))
-   ;; yield identity
-   (iter-yield res)
-   (cl-flet
-       ((get-expanded-result ()
-                             (cons (rubik-substitute (car res) (car pos-lower))
-                                   (cons (car pos-lower) (cdr res))))
-        (go-down ()
-                 (push (car pos-lower) (cdr res))
-                 (setcar res (rubik-substitute (car res) (cadr res)))
-                 (push pos-lower pos-upper)
-                 (if (member (cadr res) (car transforms))
-                     (push (cdr transforms) pos-upper)
-                   (push transforms pos-upper))
-                 (setq pos-lower (caar pos-upper)))
-        (go-up ()
-               (setcar res (rubik-substract-subst (car res) (cadr res)))
-               (pop (cdr res))
-               (pop pos-upper)
-               (setq pos-lower (pop pos-upper)))
-        (go-forward ()
-                    (setq pos-lower (cdr pos-lower))
-                    (unless pos-lower
-                      (when pos-upper
-                        (setcar pos-upper (cdar pos-upper))
-                        (when (member (cadr res) (caar pos-upper))
-                          (setcar pos-upper (cdar pos-upper)))
-                        (setq pos-lower (caar pos-upper))))))
-     ;; we stop where there is no more elements to inspect
-     (while pos-upper
-       (if pos-lower
-           ;; yield element and go down
-           (progn
-             (iter-yield (get-expanded-result))
-             ;; now go down
-             (if (> (1+ depth) (length res))
-                 (go-down)
-               (go-forward)))
-         (go-forward)
-         (unless (car pos-upper)
-           (go-up)
-           (go-forward)))))))
+ (cl-flet ((sym-val (s) (if (symbolp s) (symbol-value s) s)))
+   (let* ((transforms (if used-transformations
+                          used-transformations
+                        solver-transformation-groups))
+          (pos-upper (list (copy-tree transforms)))
+          (pos-lower (caar pos-upper))
+          (trans-length (length (sym-val (car pos-lower))))
+          (res (cl-loop for _ from 1 to 2 collect
+                        (cl-loop for i from 1 to trans-length
+                                 collect (1- i)))))
+     ;; yield identity
+     (iter-yield res)
+     (cl-flet
+         ((get-expanded-result ()
+                               (cons (rubik-substitute (car res) (sym-val (car pos-lower)))
+                                     (cons (car pos-lower) (cdr res))))
+          (go-down ()
+                   (push (car pos-lower) (cdr res))
+                   (setcar res (rubik-substitute (car res) (sym-val (cadr res))))
+                   (push pos-lower pos-upper)
+                   (if (member (cadr res) (car transforms))
+                       (push (cdr transforms) pos-upper)
+                     (push transforms pos-upper))
+                   (setq pos-lower (caar pos-upper)))
+          (go-up ()
+                 (setcar res (rubik-substract-subst (car res) (sym-val (cadr res))))
+                 (pop (cdr res))
+                 (pop pos-upper)
+                 (setq pos-lower (pop pos-upper)))
+          (go-forward ()
+                      (setq pos-lower (cdr pos-lower))
+                      (unless pos-lower
+                        (when pos-upper
+                          (setcar pos-upper (cdar pos-upper))
+                          (when (member (cadr res) (caar pos-upper))
+                            (setcar pos-upper (cdar pos-upper)))
+                          (setq pos-lower (caar pos-upper))))))
+       ;; we stop where there is no more elements to inspect
+       (while pos-upper
+         (if pos-lower
+             ;; yield element and go down
+             (progn
+               (iter-yield (get-expanded-result))
+               ;; now go down
+               (if (> (1+ depth) (length res))
+                   (go-down)
+                 (go-forward)))
+           (go-forward)
+           (unless (car pos-upper)
+             (go-up)
+             (go-forward))))))))
+
+(defun solver-find-solution (depth)
+  "Find sequence of transformations from `solver-base-state' to `solver-target-state' up to the length of DEPTH."
+  (let (good-seq
+        current-res
+        (walker (solver-seeker-deep depth)))
+    (iter-do (current-res walker)
+      (let ((temp-state (rubik-apply-transformation solver-base-state
+                                                    (car current-res))))
+        (when (equal temp-state solver-target-state)
+          (setq good-seq (cdr current-res))
+          (iter-close walker))))
+    good-seq))
 
 ;; commands
+
+(defun solver-do-solve (depth)
+  "Find solution for a given problem, searching amoung up to DEPTH states."
+  (interactive "NDepth of a search: ")
+  (solver-prepare-states)
+  (let ((answer (solver-find-solution depth)))
+    (when answer
+      (with-current-buffer "*Messages*"
+        (pp answer)))))
 
 (defun solver-mark (idx)
   (let ((temp-v (vconcat (cl-mapcar
@@ -241,6 +283,7 @@
 
 (defun solver-setup ()
   "Modify rubik's cube mode to work as solver"
+  (interactive)
   (advice-add 'rubik-make-initial-cube :override
               'solver-make-initial-cube)
   (setq rubik-painter-function 'solver-letter-drawer)
@@ -262,6 +305,7 @@
 
 (defun solver-teardown ()
   "Remove all advices from rubik's cube mode functions"
+  (interactive)
   (advice-remove 'rubik-make-initial-cube 'solver-make-initial-cube)
   (setq rubik-painter-function 'rubik-color-painter)
   (local-unset-key (kbd "SPC 1"))
