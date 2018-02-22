@@ -10,7 +10,7 @@
 
 ;; This file is not part of GNU Emacs.
 
-;;; License
+;;; License: BEER-WARE
 
 ;; If the following license is retained, anybody may change or use the
 ;; code in any way.  If this have been helpful, you may thank the
@@ -520,7 +520,7 @@
     (let* ((sl (length str))
            (pad (/ (- l sl) 2))
            (rem (- l pad)))
-      (concat (format (format "%%%ds" rem) str) (make-string pad ? )))))
+      (concat (format (format "%%%ds" rem) str) (make-string pad ?)))))
 
 (defun rubik-display-cube ()
   "Draw current cube state, assuming empty buffer."
@@ -545,7 +545,7 @@
              (setq line-str (concat line-str (format "%d. %s " i (get cmd 'name))))
              (when (> (length line-str) fill-column)
                (insert line-str)
-               (setq line-str (concat "\n" (make-string 6 ? )))))
+               (setq line-str (concat "\n" (make-string 6 ?)))))
         finally (insert line-str)))
 
 (defun rubik-display-redo ()
@@ -557,7 +557,7 @@
              (setq line-str (concat line-str (format "%d. %s " i (get cmd 'name))))
              (when (> (length line-str) fill-column)
                (insert line-str)
-               (setq line-str (concat "\n" (make-string 6 ? )))))
+               (setq line-str (concat "\n" (make-string 6 ?)))))
         finally (insert line-str)))
 
 (defun rubik-draw-all ()
